@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="WC 2026">
+  <meta name="theme-color" content="#030e1d">
+  <title>ワールドカップ 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#030e1d;min-height:100%}
+    ::-webkit-scrollbar{display:none}
+    *{scrollbar-width:none;-ms-overflow-style:none}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    @keyframes glowBorder{0%,100%{box-shadow:0 0 18px rgba(188,0,45,.12)}50%{box-shadow:0 0 32px rgba(188,0,45,.28)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .wc-loader{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#030e1d;color:rgba(255,255,255,.35);font-family:system-ui;flex-direction:column;gap:16px}
+    .wc-spinner{width:28px;height:28px;border:2px solid rgba(255,255,255,.1);border-top-color:rgba(188,0,45,.7);border-radius:50%;animation:spin .8s linear infinite}
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="wc-loader">
+    <div class="wc-spinner"></div>
+    <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase">読み込み中...</div>
+  </div>
+</div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ============================================================
+// MATCH DATA — 全88試合（グループステージ72 + ラウンド32 16）
+// ============================================================
+const MATCHES = [
+  // ===== グループステージ =====
+  // Jun 12
+  {id:"gs01",date:"2026-06-12",time:"04:00",home:"メキシコ",away:"南アフリカ",hf:"🇲🇽",af:"🇿🇦",group:"A",stage:"GS",venue:"エスタディオ・アステカ",city:"メキシコシティ",jp:false,jpP:false},
+  {id:"gs02",date:"2026-06-12",time:"11:00",home:"韓国",away:"チェコ",hf:"🇰🇷",af:"🇨🇿",group:"A",stage:"GS",venue:"エスタディオ・アクロン",city:"サポパン",jp:false,jpP:false},
+  // Jun 13
+  {id:"gs03",date:"2026-06-13",time:"04:00",home:"カナダ",away:"ボスニア",hf:"🇨🇦",af:"🇧🇦",group:"B",stage:"GS",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"gs04",date:"2026-06-13",time:"10:00",home:"USA",away:"パラグアイ",hf:"🇺🇸",af:"🇵🇾",group:"D",stage:"GS",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  // Jun 14
+  {id:"gs05",date:"2026-06-14",time:"04:00",home:"カタール",away:"スイス",hf:"🇶🇦",af:"🇨🇭",group:"B",stage:"GS",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  {id:"gs06",date:"2026-06-14",time:"07:00",home:"ブラジル",away:"モロッコ",hf:"🇧🇷",af:"🇲🇦",group:"C",stage:"GS",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"gs07",date:"2026-06-14",time:"10:00",home:"ハイチ",away:"スコットランド",hf:"🇭🇹",af:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",group:"C",stage:"GS",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"gs08",date:"2026-06-14",time:"13:00",home:"オーストラリア",away:"トルコ",hf:"🇦🇺",af:"🇹🇷",group:"D",stage:"GS",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  // Jun 15
+  {id:"gs09",date:"2026-06-15",time:"02:00",home:"ドイツ",away:"キュラソー",hf:"🇩🇪",af:"🇨🇼",group:"E",stage:"GS",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:false},
+  {id:"gs10",date:"2026-06-15",time:"05:00",home:"オランダ",away:"日本",hf:"🇳🇱",af:"🇯🇵",group:"F",stage:"GS",venue:"AT&Tスタジアム",city:"アーリントン",jp:true,jpP:false},
+  {id:"gs11",date:"2026-06-15",time:"08:00",home:"コートジボワール",away:"エクアドル",hf:"🇨🇮",af:"🇪🇨",group:"E",stage:"GS",venue:"リンカーン・フィナンシャル",city:"フィラデルフィア",jp:false,jpP:false},
+  {id:"gs12",date:"2026-06-15",time:"11:00",home:"スウェーデン",away:"チュニジア",hf:"🇸🇪",af:"🇹🇳",group:"F",stage:"GS",venue:"エスタディオ・BBVA",city:"モンテレー",jp:false,jpP:false},
+  // Jun 16
+  {id:"gs13",date:"2026-06-16",time:"01:00",home:"スペイン",away:"カーボベルデ",hf:"🇪🇸",af:"🇨🇻",group:"H",stage:"GS",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"gs14",date:"2026-06-16",time:"04:00",home:"ベルギー",away:"エジプト",hf:"🇧🇪",af:"🇪🇬",group:"G",stage:"GS",venue:"ルーメンフィールド",city:"シアトル",jp:false,jpP:false},
+  {id:"gs15",date:"2026-06-16",time:"07:00",home:"サウジアラビア",away:"ウルグアイ",hf:"🇸🇦",af:"🇺🇾",group:"H",stage:"GS",venue:"ハードロックスタジアム",city:"マイアミガーデンズ",jp:false,jpP:false},
+  {id:"gs16",date:"2026-06-16",time:"10:00",home:"イラン",away:"ニュージーランド",hf:"🇮🇷",af:"🇳🇿",group:"G",stage:"GS",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  // Jun 17
+  {id:"gs17",date:"2026-06-17",time:"04:00",home:"フランス",away:"セネガル",hf:"🇫🇷",af:"🇸🇳",group:"I",stage:"GS",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"gs18",date:"2026-06-17",time:"07:00",home:"イラク",away:"ノルウェー",hf:"🇮🇶",af:"🇳🇴",group:"I",stage:"GS",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"gs19",date:"2026-06-17",time:"10:00",home:"アルゼンチン",away:"アルジェリア",hf:"🇦🇷",af:"🇩🇿",group:"J",stage:"GS",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
+  {id:"gs20",date:"2026-06-17",time:"13:00",home:"オーストリア",away:"ヨルダン",hf:"🇦🇹",af:"🇯🇴",group:"J",stage:"GS",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  // Jun 18
+  {id:"gs21",date:"2026-06-18",time:"02:00",home:"ポルトガル",away:"コンゴDR",hf:"🇵🇹",af:"🇨🇩",group:"K",stage:"GS",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:false},
+  {id:"gs22",date:"2026-06-18",time:"05:00",home:"イングランド",away:"クロアチア",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",af:"🇭🇷",group:"L",stage:"GS",venue:"AT&Tスタジアム",city:"アーリントン",jp:false,jpP:false},
+  {id:"gs23",date:"2026-06-18",time:"08:00",home:"ガーナ",away:"パナマ",hf:"🇬🇭",af:"🇵🇦",group:"L",stage:"GS",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"gs24",date:"2026-06-18",time:"11:00",home:"ウズベキスタン",away:"コロンビア",hf:"🇺🇿",af:"🇨🇴",group:"K",stage:"GS",venue:"エスタディオ・アステカ",city:"メキシコシティ",jp:false,jpP:false},
+  // Jun 19
+  {id:"gs25",date:"2026-06-19",time:"01:00",home:"チェコ",away:"南アフリカ",hf:"🇨🇿",af:"🇿🇦",group:"A",stage:"GS",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"gs26",date:"2026-06-19",time:"04:00",home:"スイス",away:"ボスニア",hf:"🇨🇭",af:"🇧🇦",group:"B",stage:"GS",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  {id:"gs27",date:"2026-06-19",time:"07:00",home:"カナダ",away:"カタール",hf:"🇨🇦",af:"🇶🇦",group:"B",stage:"GS",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  {id:"gs28",date:"2026-06-19",time:"10:00",home:"メキシコ",away:"韓国",hf:"🇲🇽",af:"🇰🇷",group:"A",stage:"GS",venue:"エスタディオ・アクロン",city:"サポパン",jp:false,jpP:false},
+  // Jun 20
+  {id:"gs29",date:"2026-06-20",time:"04:00",home:"USA",away:"オーストラリア",hf:"🇺🇸",af:"🇦🇺",group:"D",stage:"GS",venue:"ルーメンフィールド",city:"シアトル",jp:false,jpP:false},
+  {id:"gs30",date:"2026-06-20",time:"07:00",home:"スコットランド",away:"モロッコ",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",af:"🇲🇦",group:"C",stage:"GS",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"gs31",date:"2026-06-20",time:"09:30",home:"ブラジル",away:"ハイチ",hf:"🇧🇷",af:"🇭🇹",group:"C",stage:"GS",venue:"リンカーン・フィナンシャル",city:"フィラデルフィア",jp:false,jpP:false},
+  {id:"gs32",date:"2026-06-20",time:"12:00",home:"トルコ",away:"パラグアイ",hf:"🇹🇷",af:"🇵🇾",group:"D",stage:"GS",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  // Jun 21
+  {id:"gs33",date:"2026-06-21",time:"02:00",home:"オランダ",away:"スウェーデン",hf:"🇳🇱",af:"🇸🇪",group:"F",stage:"GS",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:false},
+  {id:"gs34",date:"2026-06-21",time:"05:00",home:"ドイツ",away:"コートジボワール",hf:"🇩🇪",af:"🇨🇮",group:"E",stage:"GS",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"gs35",date:"2026-06-21",time:"09:00",home:"エクアドル",away:"キュラソー",hf:"🇪🇨",af:"🇨🇼",group:"E",stage:"GS",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
+  {id:"gs36",date:"2026-06-21",time:"13:00",home:"チュニジア",away:"日本",hf:"🇹🇳",af:"🇯🇵",group:"F",stage:"GS",venue:"エスタディオ・BBVA",city:"モンテレー",jp:true,jpP:false},
+  // Jun 22
+  {id:"gs37",date:"2026-06-22",time:"01:00",home:"スペイン",away:"サウジアラビア",hf:"🇪🇸",af:"🇸🇦",group:"H",stage:"GS",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"gs38",date:"2026-06-22",time:"04:00",home:"ベルギー",away:"イラン",hf:"🇧🇪",af:"🇮🇷",group:"G",stage:"GS",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  {id:"gs39",date:"2026-06-22",time:"07:00",home:"ウルグアイ",away:"カーボベルデ",hf:"🇺🇾",af:"🇨🇻",group:"H",stage:"GS",venue:"ハードロックスタジアム",city:"マイアミガーデンズ",jp:false,jpP:false},
+  {id:"gs40",date:"2026-06-22",time:"10:00",home:"ニュージーランド",away:"エジプト",hf:"🇳🇿",af:"🇪🇬",group:"G",stage:"GS",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  // Jun 23
+  {id:"gs41",date:"2026-06-23",time:"02:00",home:"アルゼンチン",away:"オーストリア",hf:"🇦🇷",af:"🇦🇹",group:"J",stage:"GS",venue:"AT&Tスタジアム",city:"アーリントン",jp:false,jpP:false},
+  {id:"gs42",date:"2026-06-23",time:"06:00",home:"フランス",away:"イラク",hf:"🇫🇷",af:"🇮🇶",group:"I",stage:"GS",venue:"リンカーン・フィナンシャル",city:"フィラデルフィア",jp:false,jpP:false},
+  {id:"gs43",date:"2026-06-23",time:"09:00",home:"ノルウェー",away:"セネガル",hf:"🇳🇴",af:"🇸🇳",group:"I",stage:"GS",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"gs44",date:"2026-06-23",time:"12:00",home:"ヨルダン",away:"アルジェリア",hf:"🇯🇴",af:"🇩🇿",group:"J",stage:"GS",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  // Jun 24
+  {id:"gs45",date:"2026-06-24",time:"02:00",home:"ポルトガル",away:"ウズベキスタン",hf:"🇵🇹",af:"🇺🇿",group:"K",stage:"GS",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:false},
+  {id:"gs46",date:"2026-06-24",time:"05:00",home:"イングランド",away:"ガーナ",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",af:"🇬🇭",group:"L",stage:"GS",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"gs47",date:"2026-06-24",time:"08:00",home:"パナマ",away:"クロアチア",hf:"🇵🇦",af:"🇭🇷",group:"L",stage:"GS",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"gs48",date:"2026-06-24",time:"11:00",home:"コロンビア",away:"コンゴDR",hf:"🇨🇴",af:"🇨🇩",group:"K",stage:"GS",venue:"エスタディオ・アクロン",city:"サポパン",jp:false,jpP:false},
+  // Jun 25
+  {id:"gs49",date:"2026-06-25",time:"04:00",home:"スイス",away:"カナダ",hf:"🇨🇭",af:"🇨🇦",group:"B",stage:"GS",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  {id:"gs50",date:"2026-06-25",time:"04:00",home:"ボスニア",away:"カタール",hf:"🇧🇦",af:"🇶🇦",group:"B",stage:"GS",venue:"ルーメンフィールド",city:"シアトル",jp:false,jpP:false},
+  {id:"gs51",date:"2026-06-25",time:"07:00",home:"スコットランド",away:"ブラジル",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",af:"🇧🇷",group:"C",stage:"GS",venue:"ハードロックスタジアム",city:"マイアミガーデンズ",jp:false,jpP:false},
+  {id:"gs52",date:"2026-06-25",time:"07:00",home:"モロッコ",away:"ハイチ",hf:"🇲🇦",af:"🇭🇹",group:"C",stage:"GS",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"gs53",date:"2026-06-25",time:"10:00",home:"チェコ",away:"メキシコ",hf:"🇨🇿",af:"🇲🇽",group:"A",stage:"GS",venue:"エスタディオ・アステカ",city:"メキシコシティ",jp:false,jpP:false},
+  {id:"gs54",date:"2026-06-25",time:"10:00",home:"南アフリカ",away:"韓国",hf:"🇿🇦",af:"🇰🇷",group:"A",stage:"GS",venue:"エスタディオ・BBVA",city:"モンテレー",jp:false,jpP:false},
+  // Jun 26
+  {id:"gs55",date:"2026-06-26",time:"05:00",home:"キュラソー",away:"コートジボワール",hf:"🇨🇼",af:"🇨🇮",group:"E",stage:"GS",venue:"リンカーン・フィナンシャル",city:"フィラデルフィア",jp:false,jpP:false},
+  {id:"gs56",date:"2026-06-26",time:"05:00",home:"エクアドル",away:"ドイツ",hf:"🇪🇨",af:"🇩🇪",group:"E",stage:"GS",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"gs57",date:"2026-06-26",time:"08:00",home:"日本",away:"スウェーデン",hf:"🇯🇵",af:"🇸🇪",group:"F",stage:"GS",venue:"AT&Tスタジアム",city:"アーリントン",jp:true,jpP:false},
+  {id:"gs58",date:"2026-06-26",time:"08:00",home:"チュニジア",away:"オランダ",hf:"🇹🇳",af:"🇳🇱",group:"F",stage:"GS",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
+  {id:"gs59",date:"2026-06-26",time:"11:00",home:"トルコ",away:"USA",hf:"🇹🇷",af:"🇺🇸",group:"D",stage:"GS",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  {id:"gs60",date:"2026-06-26",time:"11:00",home:"パラグアイ",away:"オーストラリア",hf:"🇵🇾",af:"🇦🇺",group:"D",stage:"GS",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  // Jun 27
+  {id:"gs61",date:"2026-06-27",time:"04:00",home:"ノルウェー",away:"フランス",hf:"🇳🇴",af:"🇫🇷",group:"I",stage:"GS",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"gs62",date:"2026-06-27",time:"04:00",home:"セネガル",away:"イラク",hf:"🇸🇳",af:"🇮🇶",group:"I",stage:"GS",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"gs63",date:"2026-06-27",time:"09:00",home:"カーボベルデ",away:"サウジアラビア",hf:"🇨🇻",af:"🇸🇦",group:"H",stage:"GS",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:false},
+  {id:"gs64",date:"2026-06-27",time:"09:00",home:"ウルグアイ",away:"スペイン",hf:"🇺🇾",af:"🇪🇸",group:"H",stage:"GS",venue:"エスタディオ・アクロン",city:"サポパン",jp:false,jpP:false},
+  {id:"gs65",date:"2026-06-27",time:"12:00",home:"エジプト",away:"イラン",hf:"🇪🇬",af:"🇮🇷",group:"G",stage:"GS",venue:"ルーメンフィールド",city:"シアトル",jp:false,jpP:false},
+  {id:"gs66",date:"2026-06-27",time:"12:00",home:"ニュージーランド",away:"ベルギー",hf:"🇳🇿",af:"🇧🇪",group:"G",stage:"GS",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  // Jun 28
+  {id:"gs67",date:"2026-06-28",time:"06:00",home:"パナマ",away:"イングランド",hf:"🇵🇦",af:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",group:"L",stage:"GS",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"gs68",date:"2026-06-28",time:"06:00",home:"クロアチア",away:"ガーナ",hf:"🇭🇷",af:"🇬🇭",group:"L",stage:"GS",venue:"リンカーン・フィナンシャル",city:"フィラデルフィア",jp:false,jpP:false},
+  {id:"gs69",date:"2026-06-28",time:"08:30",home:"コロンビア",away:"ポルトガル",hf:"🇨🇴",af:"🇵🇹",group:"K",stage:"GS",venue:"ハードロックスタジアム",city:"マイアミガーデンズ",jp:false,jpP:false},
+  {id:"gs70",date:"2026-06-28",time:"08:30",home:"コンゴDR",away:"ウズベキスタン",hf:"🇨🇩",af:"🇺🇿",group:"K",stage:"GS",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"gs71",date:"2026-06-28",time:"11:00",home:"アルジェリア",away:"オーストリア",hf:"🇩🇿",af:"🇦🇹",group:"J",stage:"GS",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
+  {id:"gs72",date:"2026-06-28",time:"11:00",home:"ヨルダン",away:"アルゼンチン",hf:"🇯🇴",af:"🇦🇷",group:"J",stage:"GS",venue:"AT&Tスタジアム",city:"アーリントン",jp:false,jpP:false},
+  // ===== ラウンド32 =====
+  {id:"r32m73",date:"2026-06-29",time:"04:00",home:"A組 2位",away:"B組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M73",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  {id:"r32m76",date:"2026-06-30",time:"02:00",home:"C組 1位",away:"F組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M76",venue:"NRGスタジアム",city:"ヒューストン",jp:false,jpP:true},
+  {id:"r32m74",date:"2026-06-30",time:"05:30",home:"E組 1位",away:"3位(A/B/C/D/F)",hf:"",af:"",group:"",stage:"R32",matchNum:"M74",venue:"ジレットスタジアム",city:"フォックスボロ",jp:false,jpP:false},
+  {id:"r32m75",date:"2026-06-30",time:"10:00",home:"F組 1位",away:"C組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M75",venue:"エスタディオ・BBVA",city:"モンテレー",jp:false,jpP:true},
+  {id:"r32m78",date:"2026-07-01",time:"02:00",home:"E組 2位",away:"I組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M78",venue:"AT&Tスタジアム",city:"アーリントン",jp:false,jpP:false},
+  {id:"r32m77",date:"2026-07-01",time:"06:00",home:"I組 1位",away:"3位(C/D/F/G/H)",hf:"",af:"",group:"",stage:"R32",matchNum:"M77",venue:"メットライフスタジアム",city:"イーストラザフォード",jp:false,jpP:false},
+  {id:"r32m79",date:"2026-07-01",time:"10:00",home:"A組 1位",away:"3位(C/E/F/H/I)",hf:"",af:"",group:"",stage:"R32",matchNum:"M79",venue:"エスタディオ・アステカ",city:"メキシコシティ",jp:false,jpP:false},
+  {id:"r32m80",date:"2026-07-02",time:"01:00",home:"L組 1位",away:"3位(E/H/I/J/K)",hf:"",af:"",group:"",stage:"R32",matchNum:"M80",venue:"メルセデス・ベンツST",city:"アトランタ",jp:false,jpP:false},
+  {id:"r32m82",date:"2026-07-02",time:"05:00",home:"G組 1位",away:"3位(A/E/H/I/J)",hf:"",af:"",group:"",stage:"R32",matchNum:"M82",venue:"ルーメンフィールド",city:"シアトル",jp:false,jpP:false},
+  {id:"r32m81",date:"2026-07-02",time:"09:00",home:"D組 1位",away:"3位(B/E/F/I/J)",hf:"",af:"",group:"",stage:"R32",matchNum:"M81",venue:"リーバイスタジアム",city:"サンタクララ",jp:false,jpP:false},
+  {id:"r32m84",date:"2026-07-03",time:"04:00",home:"H組 1位",away:"J組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M84",venue:"SoFiスタジアム",city:"イングルウッド",jp:false,jpP:false},
+  {id:"r32m83",date:"2026-07-03",time:"08:00",home:"K組 2位",away:"L組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M83",venue:"BMOフィールド",city:"トロント",jp:false,jpP:false},
+  {id:"r32m85",date:"2026-07-03",time:"12:00",home:"B組 1位",away:"3位(E/F/G/I/J)",hf:"",af:"",group:"",stage:"R32",matchNum:"M85",venue:"BCプレイス",city:"バンクーバー",jp:false,jpP:false},
+  {id:"r32m88",date:"2026-07-04",time:"03:00",home:"D組 2位",away:"G組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M88",venue:"AT&Tスタジアム",city:"アーリントン",jp:false,jpP:false},
+  {id:"r32m86",date:"2026-07-04",time:"07:00",home:"J組 1位",away:"H組 2位",hf:"",af:"",group:"",stage:"R32",matchNum:"M86",venue:"ハードロックスタジアム",city:"マイアミガーデンズ",jp:false,jpP:false},
+  {id:"r32m87",date:"2026-07-04",time:"10:30",home:"K組 1位",away:"3位(D/E/I/J/L)",hf:"",af:"",group:"",stage:"R32",matchNum:"M87",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
+];
+
+const JP_MATCHES = MATCHES.filter(m => m.jp);
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+
+function kickoffTime(m) {
+  return new Date(`${m.date}T${m.time}:00+09:00`);
+}
+
+function dateParts(ds) {
+  const [y, mo, d] = ds.split('-').map(Number);
+  const dt = new Date(y, mo - 1, d, 12, 0, 0);
+  return { mo, d, dow: DOW[dt.getDay()] };
+}
+
+// ============================================================
+function WorldCup2026() {
+  const [now, setNow] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const stripRef = useRef(null);
+  const btnRefs = useRef({});
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const todayJST = useMemo(() =>
+    now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }), [now]);
+
+  const allDates = useMemo(() =>
+    [...new Set(MATCHES.map(m => m.date))].sort(), []);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      const def = allDates.find(d => d >= todayJST) || allDates[0];
+      setSelectedDate(def);
+    }
+  }, [allDates, todayJST]);
+
+  useEffect(() => {
+    if (selectedDate && btnRefs.current[selectedDate] && stripRef.current) {
+      const btn = btnRefs.current[selectedDate];
+      const strip = stripRef.current;
+      strip.scrollLeft = btn.offsetLeft - strip.clientWidth / 2 + btn.offsetWidth / 2;
+    }
+  }, [selectedDate]);
+
+  const getStatus = (m) => {
+    const elapsed = (now - kickoffTime(m)) / 60000;
+    if (elapsed < 0) return 'upcoming';
+    if (elapsed <= 115) return 'live';
+    return 'finished';
+  };
+
+  const nextJpMatch = useMemo(() =>
+    JP_MATCHES.find(m => (now - kickoffTime(m)) / 60000 < 115), [now]);
+
+  const jpStatus = nextJpMatch ? getStatus(nextJpMatch) : null;
+
+  const countdown = useMemo(() => {
+    if (!nextJpMatch || jpStatus !== 'upcoming') return null;
+    const diff = kickoffTime(nextJpMatch) - now;
+    if (diff <= 0) return null;
+    return {
+      d: Math.floor(diff / 86400000),
+      h: Math.floor((diff % 86400000) / 3600000),
+      m: Math.floor((diff % 3600000) / 60000),
+      s: Math.floor((diff % 60000) / 1000),
+    };
+  }, [now, nextJpMatch, jpStatus]);
+
+  const dayMatches = useMemo(() =>
+    MATCHES.filter(m => m.date === selectedDate)
+      .sort((a, b) => a.time.localeCompare(b.time)),
+    [selectedDate]);
+
+  const jumpToNow = () => {
+    const def = allDates.find(d => d >= todayJST) || allDates[0];
+    setSelectedDate(def);
+  };
+
+  if (!selectedDate) return <div style={{ background: '#030e1d', minHeight: '100vh' }} />;
+
+  return (
+    <div style={{ background: '#030e1d', minHeight: '100vh', color: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+
+        {/* ===== HEADER ===== */}
+        <div style={{ padding: '28px 18px 0', background: 'linear-gradient(180deg,rgba(5,18,48,.85) 0%,transparent 100%)' }}>
+
+          {/* Top badge */}
+          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:20, padding:'3px 12px 3px 9px', fontSize:9, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'rgba(255,255,255,.5)', marginBottom:14 }}>
+            ⚽&nbsp; FIFA WORLD CUP 2026 &nbsp;·&nbsp; 全試合 日本時間（JST）
+          </div>
+
+          {/* Title */}
+          <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:'clamp(2.4rem,12vw,4.2rem)', lineHeight:.9, letterSpacing:'-.01em', textTransform:'uppercase', marginBottom:8 }}>
+            ワールド<br/>カップ<br/>
+            <span style={{ color:'rgba(255,255,255,.16)', letterSpacing:'.02em' }}>2026</span>
+          </div>
+          <div style={{ fontSize:10, letterSpacing:'0.16em', textTransform:'uppercase', color:'rgba(255,255,255,.28)', marginBottom:24 }}>
+            CANADA · MEXICO · USA &nbsp;·&nbsp; 6/11 – 7/19 &nbsp;·&nbsp; 48チーム 104試合
+          </div>
+
+          {/* Japan next match card */}
+          {nextJpMatch && (
+            <div style={{ background:'linear-gradient(135deg,rgba(188,0,45,.2) 0%,rgba(188,0,45,.07) 100%)', border:'1px solid rgba(188,0,45,.38)', borderRadius:14, padding:'16px 18px', marginBottom:20, position:'relative', overflow:'hidden', animation:'glowBorder 3s ease-in-out infinite' }}>
+              <div style={{ position:'absolute', top:-40, right:-40, width:130, height:130, background:'radial-gradient(circle,rgba(188,0,45,.35) 0%,transparent 70%)', pointerEvents:'none' }} />
+              <div style={{ position:'absolute', bottom:-20, left:40, width:90, height:90, background:'radial-gradient(circle,rgba(188,0,45,.12) 0%,transparent 70%)', pointerEvents:'none' }} />
+
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#fca5a5', marginBottom:10 }}>
+                🇯🇵 日本代表 {jpStatus === 'live' ? '▶ 試合中！' : '· 次の試合まで'}
+              </div>
+
+              {jpStatus === 'live' ? (
+                <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:32, color:'#ef4444', letterSpacing:'.04em', animation:'pulse 1.4s ease-in-out infinite', marginBottom:10 }}>
+                  🔴 LIVE NOW
+                </div>
+              ) : countdown && (
+                <div style={{ display:'flex', gap:14, marginBottom:14, alignItems:'flex-end' }}>
+                  {[
+                    { val:countdown.d, lbl:'日', show: countdown.d > 0 },
+                    { val:countdown.h, lbl:'時間', show:true },
+                    { val:countdown.m, lbl:'分', show:true },
+                    { val:countdown.s, lbl:'秒', show:true },
+                  ].filter(u => u.show).map(u => (
+                    <div key={u.lbl} style={{ textAlign:'center', minWidth:34 }}>
+                      <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:36, lineHeight:1, color:'#fff' }}>
+                        {String(u.val).padStart(2,'0')}
+                      </div>
+                      <div style={{ fontSize:8, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'rgba(255,255,255,.35)', marginTop:3 }}>{u.lbl}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:6 }}>
+                <span style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:22 }}>{nextJpMatch.hf} {nextJpMatch.home}</span>
+                <span style={{ fontSize:10, color:'rgba(255,255,255,.3)', fontWeight:600 }}>vs</span>
+                <span style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:22 }}>{nextJpMatch.af} {nextJpMatch.away}</span>
+              </div>
+              <div style={{ fontSize:11, color:'rgba(255,255,255,.4)', lineHeight:1.55 }}>
+                グループ{nextJpMatch.group} &nbsp;·&nbsp;
+                {(() => { const p = dateParts(nextJpMatch.date); return `${p.mo}/${p.d}（${p.dow}）`; })()}
+                &nbsp;{nextJpMatch.time} JST<br/>
+                {nextJpMatch.venue} / {nextJpMatch.city}
+              </div>
+            </div>
+          )}
+
+          {/* Japan 3-match strip */}
+          <div style={{ marginBottom:6 }}>
+            <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.13em', textTransform:'uppercase', color:'rgba(255,255,255,.28)', marginBottom:9 }}>
+              🇯🇵 グループF 日本代表 3試合
+            </div>
+            <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6 }}>
+              {JP_MATCHES.map(m => {
+                const st = getStatus(m);
+                const opp = m.home === '日本' ? { f:m.af, n:m.away } : { f:m.hf, n:m.home };
+                const p = dateParts(m.date);
+                return (
+                  <div key={m.id} onClick={() => setSelectedDate(m.date)} style={{
+                    flex:'0 0 auto', minWidth:130,
+                    background: st==='live' ? 'rgba(239,68,68,.1)' : st==='finished' ? 'rgba(255,255,255,.025)' : 'rgba(188,0,45,.09)',
+                    border:`1px solid ${st==='live' ? 'rgba(239,68,68,.4)' : st==='finished' ? 'rgba(255,255,255,.07)' : 'rgba(188,0,45,.28)'}`,
+                    borderRadius:10, padding:'11px 13px',
+                    opacity: st==='finished' ? 0.55 : 1,
+                    cursor:'pointer',
+                  }}>
+                    <div style={{ fontSize:10, fontWeight:500, color:'rgba(255,255,255,.4)', marginBottom:5 }}>{p.mo}/{p.d}（{p.dow}）</div>
+                    <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:16, marginBottom:3 }}>
+                      {opp.f && <span style={{ marginRight:4 }}>{opp.f}</span>}{opp.n}
+                    </div>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,.32)' }}>{m.time} JST</div>
+                    {st==='live' && <div style={{ fontSize:9, fontWeight:800, color:'#ef4444', marginTop:4, animation:'pulse 1.4s ease-in-out infinite' }}>● LIVE</div>}
+                    {st==='finished' && <div style={{ fontSize:9, color:'rgba(255,255,255,.25)', marginTop:4 }}>終了</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ===== DATE STRIP (sticky) ===== */}
+        <div style={{ position:'sticky', top:0, zIndex:20, background:'rgba(3,14,29,.94)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', borderBottom:'1px solid rgba(255,255,255,.06)', padding:'10px 0' }}>
+          <div ref={stripRef} style={{ display:'flex', gap:5, overflowX:'auto', padding:'0 14px', alignItems:'center' }}>
+            <button onClick={jumpToNow} style={{ flex:'0 0 auto', padding:'5px 11px', borderRadius:18, border:'1px solid rgba(251,191,36,.45)', background:'rgba(251,191,36,.09)', color:'#fbbf24', fontFamily:"'DM Sans', sans-serif", fontWeight:700, fontSize:9, letterSpacing:'0.1em', cursor:'pointer', outline:'none', whiteSpace:'nowrap' }}>NOW</button>
+            <div style={{ width:1, height:20, background:'rgba(255,255,255,.1)', flexShrink:0 }} />
+            {allDates.map(d => {
+              const p = dateParts(d);
+              const isSel = d === selectedDate;
+              const isToday = d === todayJST;
+              const hasJp = MATCHES.some(mt => mt.date === d && mt.jp);
+              const hasJpP = !hasJp && MATCHES.some(mt => mt.date === d && mt.jpP);
+              return (
+                <button key={d} ref={el => { btnRefs.current[d] = el; }} onClick={() => setSelectedDate(d)} style={{
+                  flex:'0 0 auto', padding:'5px 9px', borderRadius:8,
+                  border: isToday && !isSel ? '1px solid rgba(251,191,36,.3)' : '1px solid transparent',
+                  background: isSel ? '#fff' : 'rgba(255,255,255,.04)',
+                  color: isSel ? '#030e1d' : isToday ? '#fbbf24' : 'rgba(255,255,255,.55)',
+                  fontFamily:"'DM Sans', sans-serif", fontWeight: isSel ? 700 : 400,
+                  fontSize:11, cursor:'pointer', outline:'none', position:'relative', textAlign:'center', lineHeight:1.2,
+                }}>
+                  <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight: isSel ? 800 : 600, fontSize:13 }}>{p.mo}/{p.d}</div>
+                  <div style={{ fontSize:8, opacity:.6 }}>（{p.dow}）</div>
+                  {(hasJp || hasJpP) && (
+                    <div style={{ position:'absolute', top:-3, right:-3, width:7, height:7, borderRadius:'50%', background: hasJp ? '#bc002d' : 'rgba(188,0,45,.55)', border:`1.5px solid ${isSel ? '#fff' : '#030e1d'}` }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ===== MATCH LIST ===== */}
+        <div style={{ padding:'14px 14px 80px' }}>
+          {dayMatches.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'70px 0', color:'rgba(255,255,255,.18)' }}>
+              <div style={{ fontSize:40, marginBottom:14 }}>⚽</div>
+              <div style={{ fontSize:14 }}>この日は試合がありません</div>
+            </div>
+          ) : (() => {
+            const cards = [];
+            let lastStage = null;
+            dayMatches.forEach(m => {
+              if (m.stage !== lastStage) {
+                lastStage = m.stage;
+                cards.push(
+                  <div key={`sep-${m.id}`} style={{ display:'flex', alignItems:'center', gap:10, margin:`${cards.length ? 18 : 0}px 0 12px` }}>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.07)' }} />
+                    <div style={{ fontSize:9, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', color: m.stage==='GS' ? '#60a5fa' : '#c084fc' }}>
+                      {m.stage==='GS' ? '— グループステージ —' : '— ラウンド 32 —'}
+                    </div>
+                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.07)' }} />
+                  </div>
+                );
+              }
+              const status = getStatus(m);
+              const isJP = m.jp, isJPP = m.jpP;
+              const stageTag = m.stage === 'GS' ? `G${m.group}` : m.matchNum;
+
+              cards.push(
+                <div key={m.id} style={{
+                  background: isJP ? 'rgba(188,0,45,.11)' : isJPP ? 'rgba(188,0,45,.065)' : 'rgba(255,255,255,.027)',
+                  border: isJP ? '1px solid rgba(188,0,45,.32)' : isJPP ? '1px solid rgba(188,0,45,.2)' : '1px solid rgba(255,255,255,.055)',
+                  borderLeft:`3px solid ${isJP ? '#bc002d' : isJPP ? 'rgba(188,0,45,.45)' : 'transparent'}`,
+                  borderRadius:10, padding:'13px 14px', marginBottom:8,
+                  opacity: status==='finished' ? .42 : 1,
+                  animation:'fadeUp .18s ease-out',
+                }}>
+                  {/* Top row */}
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:9 }}>
+                    <div style={{ minWidth:50 }}>
+                      <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:800, fontSize:22, lineHeight:1, color: status==='live' ? '#ef4444' : '#fff' }}>{m.time}</div>
+                      <div style={{ fontSize:8, fontWeight:500, letterSpacing:'0.08em', color:'rgba(255,255,255,.28)', marginTop:1 }}>JST</div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', flex:1 }}>
+                      <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', background: m.stage==='GS' ? 'rgba(59,130,246,.16)' : 'rgba(192,132,252,.16)', color: m.stage==='GS' ? '#60a5fa' : '#c084fc', border:`1px solid ${m.stage==='GS' ? 'rgba(59,130,246,.22)' : 'rgba(192,132,252,.22)'}`, borderRadius:4, padding:'2px 6px' }}>
+                        {stageTag}
+                      </span>
+                      {status === 'live' && (
+                        <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.06em', color:'#ef4444', background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.25)', borderRadius:4, padding:'2px 6px', animation:'pulse 1.4s ease-in-out infinite' }}>● LIVE</span>
+                      )}
+                      {isJP && <span style={{ fontSize:9, fontWeight:700, color:'#fca5a5', background:'rgba(252,165,165,.1)', border:'1px solid rgba(252,165,165,.18)', borderRadius:4, padding:'2px 7px', letterSpacing:'0.04em' }}>🇯🇵 日本戦</span>}
+                      {isJPP && <span style={{ fontSize:9, fontWeight:700, color:'#fca5a5', background:'rgba(252,165,165,.08)', border:'1px solid rgba(252,165,165,.15)', borderRadius:4, padding:'2px 7px', letterSpacing:'0.04em' }}>🇯🇵 出場の可能性</span>}
+                    </div>
+                  </div>
+                  {/* Matchup */}
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0 }}>
+                      {m.hf && <span style={{ fontSize:20, lineHeight:1, flexShrink:0 }}>{m.hf}</span>}
+                      <span style={{ fontFamily:"'DM Sans', sans-serif", fontWeight: m.home==='日本' ? 600 : 400, fontSize:13.5, color: m.home==='日本' ? '#fca5a5' : '#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.home}</span>
+                    </div>
+                    <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.2)', flexShrink:0, letterSpacing:'0.06em' }}>VS</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0, justifyContent:'flex-end' }}>
+                      <span style={{ fontFamily:"'DM Sans', sans-serif", fontWeight: m.away==='日本' ? 600 : 400, fontSize:13.5, color: m.away==='日本' ? '#fca5a5' : '#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'right' }}>{m.away}</span>
+                      {m.af && <span style={{ fontSize:20, lineHeight:1, flexShrink:0 }}>{m.af}</span>}
+                    </div>
+                  </div>
+                  {/* Venue */}
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,.28)', display:'flex', alignItems:'center', gap:4, overflow:'hidden' }}>
+                    <span style={{ fontSize:10, flexShrink:0 }}>📍</span>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.venue}</span>
+                    <span style={{ color:'rgba(255,255,255,.15)', flexShrink:0 }}>·</span>
+                    <span style={{ flexShrink:0 }}>{m.city}</span>
+                  </div>
+                </div>
+              );
+            });
+            return cards;
+          })()}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+const _root = ReactDOM.createRoot(document.getElementById('root'));
+_root.render(<WorldCup2026 />);
+
+</script>
+</body>
+</html>
