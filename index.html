@@ -12,10 +12,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{background:#030e1d;min-height:100%}
-    ::-webkit-scrollbar{display:none}
-    *{scrollbar-width:none;-ms-overflow-style:none}
+    *{box-sizing:border-box;margin:0;padding:0}html,body{background:#030e1d;min-height:100%}
+    ::-webkit-scrollbar{display:none}*{scrollbar-width:none;-ms-overflow-style:none}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
     @keyframes glowBorder{0%,100%{box-shadow:0 0 18px rgba(188,0,45,.12)}50%{box-shadow:0 0 32px rgba(188,0,45,.28)}}
     @keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
@@ -26,20 +24,18 @@
 </head>
 <body>
 <div id="root">
-  <div class="wc-loader">
-    <div class="wc-spinner"></div>
+  <div class="wc-loader"><div class="wc-spinner"></div>
     <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase">読み込み中...</div>
   </div>
 </div>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script type="text/babel">
-const { useState, useEffect, useRef, useMemo } = React;
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+(function(){
+const {useState,useEffect,useRef,useMemo}=React;
+const html=htm.bind(React.createElement);
 
-// ============================================================
-// MATCH DATA — 全88試合（グループステージ72 + ラウンド32 16）
-// ============================================================
 const MATCHES = [
   // ===== グループステージ =====
   // Jun 12
@@ -150,306 +146,179 @@ const MATCHES = [
   {id:"r32m87",date:"2026-07-04",time:"10:30",home:"K組 1位",away:"3位(D/E/I/J/L)",hf:"",af:"",group:"",stage:"R32",matchNum:"M87",venue:"アローヘッドST",city:"カンザスシティ",jp:false,jpP:false},
 ];
 
-const JP_MATCHES = MATCHES.filter(m => m.jp);
-const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const JP_MATCHES=MATCHES.filter(m=>m.jp);
+const DOW=['日','月','火','水','木','金','土'];
+function kickoffTime(m){return new Date(m.date+'T'+m.time+':00+09:00');}
+function dateParts(ds){const p=ds.split('-');const dt=new Date(+p[0],+p[1]-1,+p[2],12);return{mo:+p[1],d:+p[2],dow:DOW[dt.getDay()]};}
 
-function kickoffTime(m) {
-  return new Date(`${m.date}T${m.time}:00+09:00`);
-}
+function WorldCup2026(){
+  const [now,setNow]=useState(new Date());
+  const [sel,setSel]=useState(null);
+  const stripRef=useRef(null);
+  const btnRefs=useRef({});
 
-function dateParts(ds) {
-  const [y, mo, d] = ds.split('-').map(Number);
-  const dt = new Date(y, mo - 1, d, 12, 0, 0);
-  return { mo, d, dow: DOW[dt.getDay()] };
-}
-
-// ============================================================
-function WorldCup2026() {
-  const [now, setNow] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(null);
-  const stripRef = useRef(null);
-  const btnRefs = useRef({});
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const todayJST = useMemo(() =>
-    now.toLocaleDateString('en-CA', { timeZone: 'Asia/Tokyo' }), [now]);
-
-  const allDates = useMemo(() =>
-    [...new Set(MATCHES.map(m => m.date))].sort(), []);
-
-  useEffect(() => {
-    if (!selectedDate) {
-      const def = allDates.find(d => d >= todayJST) || allDates[0];
-      setSelectedDate(def);
+  useEffect(()=>{const t=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(t);},[]);
+  const todayJST=useMemo(()=>now.toLocaleDateString('en-CA',{timeZone:'Asia/Tokyo'}),[now]);
+  const allDates=useMemo(()=>[...new Set(MATCHES.map(m=>m.date))].sort(),[]);
+  useEffect(()=>{if(!sel){const d=allDates.find(d=>d>=todayJST)||allDates[0];setSel(d);}},[allDates,todayJST]);
+  useEffect(()=>{
+    if(sel&&btnRefs.current[sel]&&stripRef.current){
+      const b=btnRefs.current[sel],s=stripRef.current;
+      s.scrollLeft=b.offsetLeft-s.clientWidth/2+b.offsetWidth/2;
     }
-  }, [allDates, todayJST]);
+  },[sel]);
 
-  useEffect(() => {
-    if (selectedDate && btnRefs.current[selectedDate] && stripRef.current) {
-      const btn = btnRefs.current[selectedDate];
-      const strip = stripRef.current;
-      strip.scrollLeft = btn.offsetLeft - strip.clientWidth / 2 + btn.offsetWidth / 2;
-    }
-  }, [selectedDate]);
+  const getStatus=m=>{const e=(now-kickoffTime(m))/60000;return e<0?'upcoming':e<=115?'live':'finished';};
+  const nextJp=useMemo(()=>JP_MATCHES.find(m=>(now-kickoffTime(m))/60000<115),[now]);
+  const jpSt=nextJp?getStatus(nextJp):null;
+  const cd=useMemo(()=>{
+    if(!nextJp||jpSt!=='upcoming')return null;
+    const diff=kickoffTime(nextJp)-now;if(diff<=0)return null;
+    return{d:Math.floor(diff/86400000),h:Math.floor((diff%86400000)/3600000),m:Math.floor((diff%3600000)/60000),s:Math.floor((diff%60000)/1000)};
+  },[now,nextJp,jpSt]);
+  const dayM=useMemo(()=>MATCHES.filter(m=>m.date===sel).sort((a,b)=>a.time.localeCompare(b.time)),[sel]);
+  const jumpNow=()=>{setSel(allDates.find(d=>d>=todayJST)||allDates[0]);};
 
-  const getStatus = (m) => {
-    const elapsed = (now - kickoffTime(m)) / 60000;
-    if (elapsed < 0) return 'upcoming';
-    if (elapsed <= 115) return 'live';
-    return 'finished';
-  };
+  if(!sel)return html`<div style=${{background:'#030e1d',minHeight:'100vh'}}></div>`;
 
-  const nextJpMatch = useMemo(() =>
-    JP_MATCHES.find(m => (now - kickoffTime(m)) / 60000 < 115), [now]);
-
-  const jpStatus = nextJpMatch ? getStatus(nextJpMatch) : null;
-
-  const countdown = useMemo(() => {
-    if (!nextJpMatch || jpStatus !== 'upcoming') return null;
-    const diff = kickoffTime(nextJpMatch) - now;
-    if (diff <= 0) return null;
-    return {
-      d: Math.floor(diff / 86400000),
-      h: Math.floor((diff % 86400000) / 3600000),
-      m: Math.floor((diff % 3600000) / 60000),
-      s: Math.floor((diff % 60000) / 1000),
-    };
-  }, [now, nextJpMatch, jpStatus]);
-
-  const dayMatches = useMemo(() =>
-    MATCHES.filter(m => m.date === selectedDate)
-      .sort((a, b) => a.time.localeCompare(b.time)),
-    [selectedDate]);
-
-  const jumpToNow = () => {
-    const def = allDates.find(d => d >= todayJST) || allDates[0];
-    setSelectedDate(def);
-  };
-
-  if (!selectedDate) return <div style={{ background: '#030e1d', minHeight: '100vh' }} />;
-
-  return (
-    <div style={{ background: '#030e1d', minHeight: '100vh', color: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ maxWidth: 680, margin: '0 auto' }}>
-
-        {/* ===== HEADER ===== */}
-        <div style={{ padding: '28px 18px 0', background: 'linear-gradient(180deg,rgba(5,18,48,.85) 0%,transparent 100%)' }}>
-
-          {/* Top badge */}
-          <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'rgba(255,255,255,.06)', border:'1px solid rgba(255,255,255,.1)', borderRadius:20, padding:'3px 12px 3px 9px', fontSize:9, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'rgba(255,255,255,.5)', marginBottom:14 }}>
-            ⚽&nbsp; FIFA WORLD CUP 2026 &nbsp;·&nbsp; 全試合 日本時間（JST）
+  function buildCards(){
+    const cards=[];let lastSt=null;
+    dayM.forEach(m=>{
+      if(m.stage!==lastSt){
+        lastSt=m.stage;
+        const lbl=m.stage==='GS'?'— グループステージ —':'— ラウンド 32 —';
+        const clr=m.stage==='GS'?'#60a5fa':'#c084fc';
+        cards.push(html`<div key=${'sep-'+m.id} style=${{display:'flex',alignItems:'center',gap:10,margin:(cards.length?'18px':'0')+' 0 12px'}}>
+          <div style=${{flex:1,height:1,background:'rgba(255,255,255,.07)'}}></div>
+          <div style=${{fontSize:9,fontWeight:800,letterSpacing:'0.14em',textTransform:'uppercase',color:clr}}>${lbl}</div>
+          <div style=${{flex:1,height:1,background:'rgba(255,255,255,.07)'}}></div></div>`);
+      }
+      const st=getStatus(m),isJP=m.jp,isJPP=m.jpP,tag=m.stage==='GS'?'G'+m.group:m.matchNum;
+      cards.push(html`<div key=${m.id} style=${{
+        background:isJP?'rgba(188,0,45,.11)':isJPP?'rgba(188,0,45,.065)':'rgba(255,255,255,.027)',
+        border:isJP?'1px solid rgba(188,0,45,.32)':isJPP?'1px solid rgba(188,0,45,.2)':'1px solid rgba(255,255,255,.055)',
+        borderLeft:'3px solid '+(isJP?'#bc002d':isJPP?'rgba(188,0,45,.45)':'transparent'),
+        borderRadius:10,padding:'13px 14px',marginBottom:8,opacity:st==='finished'?.42:1,animation:'fadeUp .18s ease-out'}}>
+        <div style=${{display:'flex',alignItems:'flex-start',gap:10,marginBottom:9}}>
+          <div style=${{minWidth:50}}>
+            <div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:22,lineHeight:1,color:st==='live'?'#ef4444':'#fff'}}>${m.time}</div>
+            <div style=${{fontSize:8,color:'rgba(255,255,255,.28)',marginTop:1}}>JST</div>
           </div>
-
-          {/* Title */}
-          <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:'clamp(2.4rem,12vw,4.2rem)', lineHeight:.9, letterSpacing:'-.01em', textTransform:'uppercase', marginBottom:8 }}>
-            ワールド<br/>カップ<br/>
-            <span style={{ color:'rgba(255,255,255,.16)', letterSpacing:'.02em' }}>2026</span>
-          </div>
-          <div style={{ fontSize:10, letterSpacing:'0.16em', textTransform:'uppercase', color:'rgba(255,255,255,.28)', marginBottom:24 }}>
-            CANADA · MEXICO · USA &nbsp;·&nbsp; 6/11 – 7/19 &nbsp;·&nbsp; 48チーム 104試合
-          </div>
-
-          {/* Japan next match card */}
-          {nextJpMatch && (
-            <div style={{ background:'linear-gradient(135deg,rgba(188,0,45,.2) 0%,rgba(188,0,45,.07) 100%)', border:'1px solid rgba(188,0,45,.38)', borderRadius:14, padding:'16px 18px', marginBottom:20, position:'relative', overflow:'hidden', animation:'glowBorder 3s ease-in-out infinite' }}>
-              <div style={{ position:'absolute', top:-40, right:-40, width:130, height:130, background:'radial-gradient(circle,rgba(188,0,45,.35) 0%,transparent 70%)', pointerEvents:'none' }} />
-              <div style={{ position:'absolute', bottom:-20, left:40, width:90, height:90, background:'radial-gradient(circle,rgba(188,0,45,.12) 0%,transparent 70%)', pointerEvents:'none' }} />
-
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#fca5a5', marginBottom:10 }}>
-                🇯🇵 日本代表 {jpStatus === 'live' ? '▶ 試合中！' : '· 次の試合まで'}
-              </div>
-
-              {jpStatus === 'live' ? (
-                <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:32, color:'#ef4444', letterSpacing:'.04em', animation:'pulse 1.4s ease-in-out infinite', marginBottom:10 }}>
-                  🔴 LIVE NOW
-                </div>
-              ) : countdown && (
-                <div style={{ display:'flex', gap:14, marginBottom:14, alignItems:'flex-end' }}>
-                  {[
-                    { val:countdown.d, lbl:'日', show: countdown.d > 0 },
-                    { val:countdown.h, lbl:'時間', show:true },
-                    { val:countdown.m, lbl:'分', show:true },
-                    { val:countdown.s, lbl:'秒', show:true },
-                  ].filter(u => u.show).map(u => (
-                    <div key={u.lbl} style={{ textAlign:'center', minWidth:34 }}>
-                      <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:900, fontSize:36, lineHeight:1, color:'#fff' }}>
-                        {String(u.val).padStart(2,'0')}
-                      </div>
-                      <div style={{ fontSize:8, fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color:'rgba(255,255,255,.35)', marginTop:3 }}>{u.lbl}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:6 }}>
-                <span style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:22 }}>{nextJpMatch.hf} {nextJpMatch.home}</span>
-                <span style={{ fontSize:10, color:'rgba(255,255,255,.3)', fontWeight:600 }}>vs</span>
-                <span style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:22 }}>{nextJpMatch.af} {nextJpMatch.away}</span>
-              </div>
-              <div style={{ fontSize:11, color:'rgba(255,255,255,.4)', lineHeight:1.55 }}>
-                グループ{nextJpMatch.group} &nbsp;·&nbsp;
-                {(() => { const p = dateParts(nextJpMatch.date); return `${p.mo}/${p.d}（${p.dow}）`; })()}
-                &nbsp;{nextJpMatch.time} JST<br/>
-                {nextJpMatch.venue} / {nextJpMatch.city}
-              </div>
-            </div>
-          )}
-
-          {/* Japan 3-match strip */}
-          <div style={{ marginBottom:6 }}>
-            <div style={{ fontSize:9, fontWeight:700, letterSpacing:'0.13em', textTransform:'uppercase', color:'rgba(255,255,255,.28)', marginBottom:9 }}>
-              🇯🇵 グループF 日本代表 3試合
-            </div>
-            <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:6 }}>
-              {JP_MATCHES.map(m => {
-                const st = getStatus(m);
-                const opp = m.home === '日本' ? { f:m.af, n:m.away } : { f:m.hf, n:m.home };
-                const p = dateParts(m.date);
-                return (
-                  <div key={m.id} onClick={() => setSelectedDate(m.date)} style={{
-                    flex:'0 0 auto', minWidth:130,
-                    background: st==='live' ? 'rgba(239,68,68,.1)' : st==='finished' ? 'rgba(255,255,255,.025)' : 'rgba(188,0,45,.09)',
-                    border:`1px solid ${st==='live' ? 'rgba(239,68,68,.4)' : st==='finished' ? 'rgba(255,255,255,.07)' : 'rgba(188,0,45,.28)'}`,
-                    borderRadius:10, padding:'11px 13px',
-                    opacity: st==='finished' ? 0.55 : 1,
-                    cursor:'pointer',
-                  }}>
-                    <div style={{ fontSize:10, fontWeight:500, color:'rgba(255,255,255,.4)', marginBottom:5 }}>{p.mo}/{p.d}（{p.dow}）</div>
-                    <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:700, fontSize:16, marginBottom:3 }}>
-                      {opp.f && <span style={{ marginRight:4 }}>{opp.f}</span>}{opp.n}
-                    </div>
-                    <div style={{ fontSize:10, color:'rgba(255,255,255,.32)' }}>{m.time} JST</div>
-                    {st==='live' && <div style={{ fontSize:9, fontWeight:800, color:'#ef4444', marginTop:4, animation:'pulse 1.4s ease-in-out infinite' }}>● LIVE</div>}
-                    {st==='finished' && <div style={{ fontSize:9, color:'rgba(255,255,255,.25)', marginTop:4 }}>終了</div>}
-                  </div>
-                );
-              })}
-            </div>
+          <div style=${{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',flex:1}}>
+            <span style=${{fontSize:9,fontWeight:800,letterSpacing:'0.1em',textTransform:'uppercase',
+              background:m.stage==='GS'?'rgba(59,130,246,.16)':'rgba(192,132,252,.16)',
+              color:m.stage==='GS'?'#60a5fa':'#c084fc',
+              border:'1px solid '+(m.stage==='GS'?'rgba(59,130,246,.22)':'rgba(192,132,252,.22)'),
+              borderRadius:4,padding:'2px 6px'}}>${tag}</span>
+            ${st==='live'&&html`<span style=${{fontSize:9,fontWeight:800,color:'#ef4444',background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.25)',borderRadius:4,padding:'2px 6px',animation:'pulse 1.4s ease-in-out infinite'}}>● LIVE</span>`}
+            ${isJP&&html`<span style=${{fontSize:9,fontWeight:700,color:'#fca5a5',background:'rgba(252,165,165,.1)',border:'1px solid rgba(252,165,165,.18)',borderRadius:4,padding:'2px 7px'}}>🇯🇵 日本戦</span>`}
+            ${isJPP&&html`<span style=${{fontSize:9,fontWeight:700,color:'#fca5a5',background:'rgba(252,165,165,.08)',border:'1px solid rgba(252,165,165,.15)',borderRadius:4,padding:'2px 7px'}}>🇯🇵 出場の可能性</span>`}
           </div>
         </div>
+        <div style=${{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <div style=${{display:'flex',alignItems:'center',gap:6,flex:1,minWidth:0}}>
+            ${m.hf&&html`<span style=${{fontSize:20,lineHeight:1,flexShrink:0}}>${m.hf}</span>`}
+            <span style=${{fontFamily:"'DM Sans',sans-serif",fontWeight:m.home==='日本'?600:400,fontSize:13.5,
+              color:m.home==='日本'?'#fca5a5':'#e8e8e8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>${m.home}</span>
+          </div>
+          <span style=${{fontSize:9,fontWeight:700,color:'rgba(255,255,255,.2)',flexShrink:0}}>VS</span>
+          <div style=${{display:'flex',alignItems:'center',gap:6,flex:1,minWidth:0,justifyContent:'flex-end'}}>
+            <span style=${{fontFamily:"'DM Sans',sans-serif",fontWeight:m.away==='日本'?600:400,fontSize:13.5,
+              color:m.away==='日本'?'#fca5a5':'#e8e8e8',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'right'}}>${m.away}</span>
+            ${m.af&&html`<span style=${{fontSize:20,lineHeight:1,flexShrink:0}}>${m.af}</span>`}
+          </div>
+        </div>
+        <div style=${{fontSize:11,color:'rgba(255,255,255,.28)',display:'flex',alignItems:'center',gap:4,overflow:'hidden'}}>
+          <span style=${{flexShrink:0}}>📍</span>
+          <span style=${{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>${m.venue}</span>
+          <span style=${{color:'rgba(255,255,255,.15)',flexShrink:0}}>·</span>
+          <span style=${{flexShrink:0}}>${m.city}</span>
+        </div>
+      </div>`);
+    });
+    return cards;
+  }
 
-        {/* ===== DATE STRIP (sticky) ===== */}
-        <div style={{ position:'sticky', top:0, zIndex:20, background:'rgba(3,14,29,.94)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', borderBottom:'1px solid rgba(255,255,255,.06)', padding:'10px 0' }}>
-          <div ref={stripRef} style={{ display:'flex', gap:5, overflowX:'auto', padding:'0 14px', alignItems:'center' }}>
-            <button onClick={jumpToNow} style={{ flex:'0 0 auto', padding:'5px 11px', borderRadius:18, border:'1px solid rgba(251,191,36,.45)', background:'rgba(251,191,36,.09)', color:'#fbbf24', fontFamily:"'DM Sans', sans-serif", fontWeight:700, fontSize:9, letterSpacing:'0.1em', cursor:'pointer', outline:'none', whiteSpace:'nowrap' }}>NOW</button>
-            <div style={{ width:1, height:20, background:'rgba(255,255,255,.1)', flexShrink:0 }} />
-            {allDates.map(d => {
-              const p = dateParts(d);
-              const isSel = d === selectedDate;
-              const isToday = d === todayJST;
-              const hasJp = MATCHES.some(mt => mt.date === d && mt.jp);
-              const hasJpP = !hasJp && MATCHES.some(mt => mt.date === d && mt.jpP);
-              return (
-                <button key={d} ref={el => { btnRefs.current[d] = el; }} onClick={() => setSelectedDate(d)} style={{
-                  flex:'0 0 auto', padding:'5px 9px', borderRadius:8,
-                  border: isToday && !isSel ? '1px solid rgba(251,191,36,.3)' : '1px solid transparent',
-                  background: isSel ? '#fff' : 'rgba(255,255,255,.04)',
-                  color: isSel ? '#030e1d' : isToday ? '#fbbf24' : 'rgba(255,255,255,.55)',
-                  fontFamily:"'DM Sans', sans-serif", fontWeight: isSel ? 700 : 400,
-                  fontSize:11, cursor:'pointer', outline:'none', position:'relative', textAlign:'center', lineHeight:1.2,
-                }}>
-                  <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight: isSel ? 800 : 600, fontSize:13 }}>{p.mo}/{p.d}</div>
-                  <div style={{ fontSize:8, opacity:.6 }}>（{p.dow}）</div>
-                  {(hasJp || hasJpP) && (
-                    <div style={{ position:'absolute', top:-3, right:-3, width:7, height:7, borderRadius:'50%', background: hasJp ? '#bc002d' : 'rgba(188,0,45,.55)', border:`1.5px solid ${isSel ? '#fff' : '#030e1d'}` }} />
-                  )}
-                </button>
-              );
+  return html`<div style=${{background:'#030e1d',minHeight:'100vh',color:'#fff',fontFamily:"'DM Sans',sans-serif"}}>
+    <div style=${{maxWidth:680,margin:'0 auto'}}>
+      <div style=${{padding:'28px 18px 0',background:'linear-gradient(180deg,rgba(5,18,48,.85) 0%,transparent 100%)'}}>
+        <div style=${{display:'inline-flex',alignItems:'center',gap:6,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:20,padding:'3px 12px 3px 9px',fontSize:9,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'rgba(255,255,255,.5)',marginBottom:14}}>⚽ FIFA WORLD CUP 2026 · 全試合 日本時間（JST）</div>
+        <div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:'clamp(2.4rem,12vw,4.2rem)',lineHeight:.9,textTransform:'uppercase',marginBottom:8}}>
+          ワールド<br/>カップ<br/><span style=${{color:'rgba(255,255,255,.16)'}}>2026</span>
+        </div>
+        <div style=${{fontSize:10,letterSpacing:'0.16em',textTransform:'uppercase',color:'rgba(255,255,255,.28)',marginBottom:24}}>CANADA · MEXICO · USA · 6/11–7/19 · 48チーム 104試合</div>
+
+        ${nextJp&&html`<div style=${{background:'linear-gradient(135deg,rgba(188,0,45,.2) 0%,rgba(188,0,45,.07) 100%)',border:'1px solid rgba(188,0,45,.38)',borderRadius:14,padding:'16px 18px',marginBottom:20,position:'relative',overflow:'hidden',animation:'glowBorder 3s ease-in-out infinite'}}>
+          <div style=${{position:'absolute',top:-40,right:-40,width:130,height:130,background:'radial-gradient(circle,rgba(188,0,45,.35) 0%,transparent 70%)',pointerEvents:'none'}}></div>
+          <div style=${{fontSize:10,fontWeight:700,letterSpacing:'0.12em',textTransform:'uppercase',color:'#fca5a5',marginBottom:10}}>🇯🇵 日本代表 ${jpSt==='live'?'▶ 試合中！':'· 次の試合まで'}</div>
+          ${jpSt==='live'?html`<div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:32,color:'#ef4444',animation:'pulse 1.4s ease-in-out infinite',marginBottom:10}}>🔴 LIVE NOW</div>`
+          :cd&&html`<div style=${{display:'flex',gap:14,marginBottom:14,alignItems:'flex-end'}}>
+            ${[{val:cd.d,lbl:'日',show:cd.d>0},{val:cd.h,lbl:'時間',show:true},{val:cd.m,lbl:'分',show:true},{val:cd.s,lbl:'秒',show:true}]
+              .filter(u=>u.show).map(u=>html`<div key=${u.lbl} style=${{textAlign:'center',minWidth:34}}>
+                <div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:36,lineHeight:1,color:'#fff'}}>${String(u.val).padStart(2,'0')}</div>
+                <div style=${{fontSize:8,fontWeight:600,textTransform:'uppercase',color:'rgba(255,255,255,.35)',marginTop:3}}>${u.lbl}</div>
+              </div>`)}
+          </div>`}
+          <div style=${{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',marginBottom:6}}>
+            <span style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:22}}>${nextJp.hf} ${nextJp.home}</span>
+            <span style=${{fontSize:10,color:'rgba(255,255,255,.3)'}}>vs</span>
+            <span style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:22}}>${nextJp.af} ${nextJp.away}</span>
+          </div>
+          <div style=${{fontSize:11,color:'rgba(255,255,255,.4)',lineHeight:1.55}}>グループ${nextJp.group} · ${(()=>{const p=dateParts(nextJp.date);return p.mo+'/'+p.d+'（'+p.dow+'）';})()} ${nextJp.time} JST<br/>${nextJp.venue} / ${nextJp.city}</div>
+        </div>`}
+
+        <div style=${{marginBottom:6}}>
+          <div style=${{fontSize:9,fontWeight:700,letterSpacing:'0.13em',textTransform:'uppercase',color:'rgba(255,255,255,.28)',marginBottom:9}}>🇯🇵 グループF 日本代表 3試合</div>
+          <div style=${{display:'flex',gap:10,overflowX:'auto',paddingBottom:6}}>
+            ${JP_MATCHES.map(m=>{
+              const st=getStatus(m),opp=m.home==='日本'?{f:m.af,n:m.away}:{f:m.hf,n:m.home},p=dateParts(m.date);
+              return html`<div key=${m.id} onClick=${()=>setSel(m.date)} style=${{flex:'0 0 auto',minWidth:130,
+                background:st==='live'?'rgba(239,68,68,.1)':st==='finished'?'rgba(255,255,255,.025)':'rgba(188,0,45,.09)',
+                border:'1px solid '+(st==='live'?'rgba(239,68,68,.4)':st==='finished'?'rgba(255,255,255,.07)':'rgba(188,0,45,.28)'),
+                borderRadius:10,padding:'11px 13px',opacity:st==='finished'?0.55:1,cursor:'pointer'}}>
+                <div style=${{fontSize:10,color:'rgba(255,255,255,.4)',marginBottom:5}}>${p.mo}/${p.d}（${p.dow}）</div>
+                <div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:16,marginBottom:3}}>
+                  ${opp.f&&html`<span style=${{marginRight:4}}>${opp.f}</span>`}${opp.n}</div>
+                <div style=${{fontSize:10,color:'rgba(255,255,255,.32)'}}>${m.time} JST</div>
+                ${st==='live'&&html`<div style=${{fontSize:9,fontWeight:800,color:'#ef4444',marginTop:4,animation:'pulse 1.4s ease-in-out infinite'}}>● LIVE</div>`}
+                ${st==='finished'&&html`<div style=${{fontSize:9,color:'rgba(255,255,255,.25)',marginTop:4}}>終了</div>`}
+              </div>`;
             })}
           </div>
         </div>
+      </div>
 
-        {/* ===== MATCH LIST ===== */}
-        <div style={{ padding:'14px 14px 80px' }}>
-          {dayMatches.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'70px 0', color:'rgba(255,255,255,.18)' }}>
-              <div style={{ fontSize:40, marginBottom:14 }}>⚽</div>
-              <div style={{ fontSize:14 }}>この日は試合がありません</div>
-            </div>
-          ) : (() => {
-            const cards = [];
-            let lastStage = null;
-            dayMatches.forEach(m => {
-              if (m.stage !== lastStage) {
-                lastStage = m.stage;
-                cards.push(
-                  <div key={`sep-${m.id}`} style={{ display:'flex', alignItems:'center', gap:10, margin:`${cards.length ? 18 : 0}px 0 12px` }}>
-                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.07)' }} />
-                    <div style={{ fontSize:9, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', color: m.stage==='GS' ? '#60a5fa' : '#c084fc' }}>
-                      {m.stage==='GS' ? '— グループステージ —' : '— ラウンド 32 —'}
-                    </div>
-                    <div style={{ flex:1, height:1, background:'rgba(255,255,255,.07)' }} />
-                  </div>
-                );
-              }
-              const status = getStatus(m);
-              const isJP = m.jp, isJPP = m.jpP;
-              const stageTag = m.stage === 'GS' ? `G${m.group}` : m.matchNum;
-
-              cards.push(
-                <div key={m.id} style={{
-                  background: isJP ? 'rgba(188,0,45,.11)' : isJPP ? 'rgba(188,0,45,.065)' : 'rgba(255,255,255,.027)',
-                  border: isJP ? '1px solid rgba(188,0,45,.32)' : isJPP ? '1px solid rgba(188,0,45,.2)' : '1px solid rgba(255,255,255,.055)',
-                  borderLeft:`3px solid ${isJP ? '#bc002d' : isJPP ? 'rgba(188,0,45,.45)' : 'transparent'}`,
-                  borderRadius:10, padding:'13px 14px', marginBottom:8,
-                  opacity: status==='finished' ? .42 : 1,
-                  animation:'fadeUp .18s ease-out',
-                }}>
-                  {/* Top row */}
-                  <div style={{ display:'flex', alignItems:'flex-start', gap:10, marginBottom:9 }}>
-                    <div style={{ minWidth:50 }}>
-                      <div style={{ fontFamily:"'Barlow Condensed', sans-serif", fontWeight:800, fontSize:22, lineHeight:1, color: status==='live' ? '#ef4444' : '#fff' }}>{m.time}</div>
-                      <div style={{ fontSize:8, fontWeight:500, letterSpacing:'0.08em', color:'rgba(255,255,255,.28)', marginTop:1 }}>JST</div>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', flex:1 }}>
-                      <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', background: m.stage==='GS' ? 'rgba(59,130,246,.16)' : 'rgba(192,132,252,.16)', color: m.stage==='GS' ? '#60a5fa' : '#c084fc', border:`1px solid ${m.stage==='GS' ? 'rgba(59,130,246,.22)' : 'rgba(192,132,252,.22)'}`, borderRadius:4, padding:'2px 6px' }}>
-                        {stageTag}
-                      </span>
-                      {status === 'live' && (
-                        <span style={{ fontSize:9, fontWeight:800, letterSpacing:'0.06em', color:'#ef4444', background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.25)', borderRadius:4, padding:'2px 6px', animation:'pulse 1.4s ease-in-out infinite' }}>● LIVE</span>
-                      )}
-                      {isJP && <span style={{ fontSize:9, fontWeight:700, color:'#fca5a5', background:'rgba(252,165,165,.1)', border:'1px solid rgba(252,165,165,.18)', borderRadius:4, padding:'2px 7px', letterSpacing:'0.04em' }}>🇯🇵 日本戦</span>}
-                      {isJPP && <span style={{ fontSize:9, fontWeight:700, color:'#fca5a5', background:'rgba(252,165,165,.08)', border:'1px solid rgba(252,165,165,.15)', borderRadius:4, padding:'2px 7px', letterSpacing:'0.04em' }}>🇯🇵 出場の可能性</span>}
-                    </div>
-                  </div>
-                  {/* Matchup */}
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0 }}>
-                      {m.hf && <span style={{ fontSize:20, lineHeight:1, flexShrink:0 }}>{m.hf}</span>}
-                      <span style={{ fontFamily:"'DM Sans', sans-serif", fontWeight: m.home==='日本' ? 600 : 400, fontSize:13.5, color: m.home==='日本' ? '#fca5a5' : '#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.home}</span>
-                    </div>
-                    <span style={{ fontSize:9, fontWeight:700, color:'rgba(255,255,255,.2)', flexShrink:0, letterSpacing:'0.06em' }}>VS</span>
-                    <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0, justifyContent:'flex-end' }}>
-                      <span style={{ fontFamily:"'DM Sans', sans-serif", fontWeight: m.away==='日本' ? 600 : 400, fontSize:13.5, color: m.away==='日本' ? '#fca5a5' : '#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign:'right' }}>{m.away}</span>
-                      {m.af && <span style={{ fontSize:20, lineHeight:1, flexShrink:0 }}>{m.af}</span>}
-                    </div>
-                  </div>
-                  {/* Venue */}
-                  <div style={{ fontSize:11, color:'rgba(255,255,255,.28)', display:'flex', alignItems:'center', gap:4, overflow:'hidden' }}>
-                    <span style={{ fontSize:10, flexShrink:0 }}>📍</span>
-                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.venue}</span>
-                    <span style={{ color:'rgba(255,255,255,.15)', flexShrink:0 }}>·</span>
-                    <span style={{ flexShrink:0 }}>{m.city}</span>
-                  </div>
-                </div>
-              );
-            });
-            return cards;
-          })()}
+      <div style=${{position:'sticky',top:0,zIndex:20,background:'rgba(3,14,29,.94)',backdropFilter:'blur(24px)',WebkitBackdropFilter:'blur(24px)',borderBottom:'1px solid rgba(255,255,255,.06)',padding:'10px 0'}}>
+        <div ref=${stripRef} style=${{display:'flex',gap:5,overflowX:'auto',padding:'0 14px',alignItems:'center'}}>
+          <button onClick=${jumpNow} style=${{flex:'0 0 auto',padding:'5px 11px',borderRadius:18,border:'1px solid rgba(251,191,36,.45)',background:'rgba(251,191,36,.09)',color:'#fbbf24',fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:9,letterSpacing:'0.1em',cursor:'pointer',outline:'none',whiteSpace:'nowrap'}}>NOW</button>
+          <div style=${{width:1,height:20,background:'rgba(255,255,255,.1)',flexShrink:0}}></div>
+          ${allDates.map(d=>{
+            const p=dateParts(d),isSel=d===sel,isToday=d===todayJST;
+            const hasJp=MATCHES.some(mt=>mt.date===d&&mt.jp),hasJpP=!hasJp&&MATCHES.some(mt=>mt.date===d&&mt.jpP);
+            return html`<button key=${d} ref=${el=>{btnRefs.current[d]=el;}} onClick=${()=>setSel(d)} style=${{
+              flex:'0 0 auto',padding:'5px 9px',borderRadius:8,
+              border:isToday&&!isSel?'1px solid rgba(251,191,36,.3)':'1px solid transparent',
+              background:isSel?'#fff':'rgba(255,255,255,.04)',color:isSel?'#030e1d':isToday?'#fbbf24':'rgba(255,255,255,.55)',
+              fontFamily:"'DM Sans',sans-serif",fontWeight:isSel?700:400,fontSize:11,cursor:'pointer',outline:'none',position:'relative',textAlign:'center',lineHeight:1.2}}>
+              <div style=${{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:isSel?800:600,fontSize:13}}>${p.mo}/${p.d}</div>
+              <div style=${{fontSize:8,opacity:.6}}>（${p.dow}）</div>
+              ${(hasJp||hasJpP)&&html`<div style=${{position:'absolute',top:-3,right:-3,width:7,height:7,borderRadius:'50%',background:hasJp?'#bc002d':'rgba(188,0,45,.55)',border:'1.5px solid '+(isSel?'#fff':'#030e1d')}}></div>`}
+            </button>`;
+          })}
         </div>
+      </div>
 
+      <div style=${{padding:'14px 14px 80px'}}>
+        ${dayM.length===0?html`<div style=${{textAlign:'center',padding:'70px 0',color:'rgba(255,255,255,.18)'}}>
+          <div style=${{fontSize:40,marginBottom:14}}>⚽</div>
+          <div style=${{fontSize:14}}>この日は試合がありません</div></div>`:buildCards()}
       </div>
     </div>
-  );
+  </div>`;
 }
 
-const _root = ReactDOM.createRoot(document.getElementById('root'));
-_root.render(<WorldCup2026 />);
-
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${WorldCup2026}/>`);
+})();
 </script>
 </body>
 </html>
